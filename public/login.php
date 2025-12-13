@@ -1,0 +1,54 @@
+<?php require_once "../includes/guest_guard.php"; ?>
+<?php
+require_once "../includes/config.php";
+
+$page_title = "Login • NoteCore";
+$show_nav = false;
+
+$error = "";
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+  $username = trim($_POST["username"] ?? "");
+  $password = $_POST["password"] ?? "";
+
+  $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
+  $stmt->execute([$username]);
+  $user = $stmt->fetch();
+
+  if ($user && password_verify($password, $user["password_hash"])) {
+    $_SESSION["user_id"] = (int)$user["id"];
+    $_SESSION["username"] = $user["username"];
+    $_SESSION["theme"] = $user["theme"];
+    header("Location: home.php");
+    exit;
+  }
+  $error = "Invalid username or password.";
+}
+
+require_once "../includes/header.php";
+?>
+<div class="brand">
+  <div class="logo">📄✅</div>
+</div>
+
+<h1 class="title" style="font-size:44px;">NoteCore</h1>
+<p class="tagline">You only have to think once, NoteCore remembers for you ✨</p>
+
+<div class="panel" style="max-width:560px;">
+  <h2 style="text-align:center; margin:6px 0 14px; text-shadow:0 2px 0 rgba(0,0,0,.2); font-family:Georgia,serif;">Login</h2>
+
+  <?php if ($error): ?>
+    <div class="card" style="background: rgba(225,63,64,.25);"><?= htmlspecialchars($error) ?></div>
+  <?php endif; ?>
+
+  <form method="post" style="display:flex; flex-direction:column; gap:10px;">
+    <input class="input" name="username" placeholder="Username" required />
+    <input class="input" name="password" placeholder="Password" type="password" required />
+    <button class="btn" type="submit">Login</button>
+  </form>
+
+  <p style="text-align:center; margin-top:12px; color:var(--muted);">
+    Don’t have an account yet? <a href="register.php" style="color:#1a58ff;">Register here</a>
+  </p>
+</div>
+
+<?php require_once "../includes/footer.php"; ?>
