@@ -42,7 +42,13 @@ require_once "../includes/header.php";
 
   <form method="post" style="display:flex; flex-direction:column; gap:10px;">
     <input class="input" name="username" placeholder="Username" required />
-    <input class="input" name="password" placeholder="Password" type="password" required />
+    <div class="field pw-field">
+      <input class="input" type="password" name="password" id="login_password" placeholder="Password" required>
+      <button type="button" class="pw-toggle" data-target="login_password" aria-label="Show password">👁</button>
+    </div>
+
+
+
     <button class="btn" type="submit">Login</button>
   </form>
 

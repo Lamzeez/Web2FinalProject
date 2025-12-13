@@ -6,30 +6,45 @@ require_login();
 
 header("Content-Type: application/json; charset=utf-8");
 
-$user_id = (int)$_SESSION["user_id"];
-$method = $_SERVER["REQUEST_METHOD"];
+$user_id = (int)($_SESSION["user_id"] ?? 0);
+$method = $_SERVER["REQUEST_METHOD"] ?? "GET";
+
+function respond(int $code, array $payload): void {
+  http_response_code($code);
+  echo json_encode($payload);
+  exit;
+}
+
+function read_json(): array {
+  $raw = file_get_contents("php://input");
+  if (!$raw) return [];
+  $data = json_decode($raw, true);
+  return is_array($data) ? $data : [];
+}
 
 try {
   if ($method === "GET") {
-    $q = trim($_GET["q"] ?? "");
-    $date = $_GET["date"] ?? null;
+    $q     = trim($_GET["q"] ?? "");
+    $date  = $_GET["date"] ?? null;
     $start = $_GET["start"] ?? null;
-    $end = $_GET["end"] ?? null;
+    $end   = $_GET["end"] ?? null;
 
-    $sql = "SELECT * FROM notes WHERE user_id=?";
+    $sql = "SELECT id, user_id, title, content, note_date, created_at, updated_at
+            FROM notes
+            WHERE user_id = ?";
     $params = [$user_id];
 
     if ($q !== "") {
       $sql .= " AND (title LIKE ? OR content LIKE ?)";
-      $like = "%$q%";
+      $like = "%{$q}%";
       $params[] = $like;
       $params[] = $like;
     }
 
-    if ($date) {
+    if (!empty($date)) {
       $sql .= " AND note_date = ?";
       $params[] = $date;
-    } elseif ($start && $end) {
+    } elseif (!empty($start) && !empty($end)) {
       $sql .= " AND note_date BETWEEN ? AND ?";
       $params[] = $start;
       $params[] = $end;
@@ -40,50 +55,62 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 
-    echo json_encode(["ok" => true, "notes" => $stmt->fetchAll()]);
-    exit;
+    respond(200, ["ok" => true, "notes" => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
   }
 
-  $data = json_decode(file_get_contents("php://input"), true) ?? [];
+  $data = read_json();
 
   if ($method === "POST") {
     $title = trim($data["title"] ?? "");
     $content = trim($data["content"] ?? "");
     $note_date = $data["note_date"] ?? date("Y-m-d");
 
-    $stmt = $pdo->prepare("INSERT INTO notes(user_id,title,content,note_date) VALUES (?,?,?,?)");
+    if ($title === "" || $content === "") {
+      respond(400, ["ok" => false, "error" => "Title and content are required."]);
+    }
+
+    $stmt = $pdo->prepare(
+      "INSERT INTO notes (user_id, title, content, note_date)
+       VALUES (?, ?, ?, ?)"
+    );
     $stmt->execute([$user_id, $title, $content, $note_date]);
 
-    echo json_encode(["ok" => true, "id" => (int)$pdo->lastInsertId()]);
-    exit;
+    respond(201, ["ok" => true, "id" => (int)$pdo->lastInsertId()]);
   }
 
   if ($method === "PUT") {
     $id = (int)($data["id"] ?? 0);
+    if ($id <= 0) respond(400, ["ok" => false, "error" => "Missing note id."]);
+
     $title = trim($data["title"] ?? "");
     $content = trim($data["content"] ?? "");
     $note_date = $data["note_date"] ?? date("Y-m-d");
 
-    $stmt = $pdo->prepare("UPDATE notes SET title=?, content=?, note_date=? WHERE id=? AND user_id=?");
+    if ($title === "" || $content === "") {
+      respond(400, ["ok" => false, "error" => "Title and content are required."]);
+    }
+
+    $stmt = $pdo->prepare(
+      "UPDATE notes
+       SET title = ?, content = ?, note_date = ?
+       WHERE id = ? AND user_id = ?"
+    );
     $stmt->execute([$title, $content, $note_date, $id, $user_id]);
 
-    echo json_encode(["ok" => true]);
-    exit;
+    respond(200, ["ok" => true]);
   }
 
   if ($method === "DELETE") {
     $id = (int)($data["id"] ?? 0);
+    if ($id <= 0) respond(400, ["ok" => false, "error" => "Missing note id."]);
 
-    $stmt = $pdo->prepare("DELETE FROM notes WHERE id=? AND user_id=?");
+    $stmt = $pdo->prepare("DELETE FROM notes WHERE id = ? AND user_id = ?");
     $stmt->execute([$id, $user_id]);
 
-    echo json_encode(["ok" => true]);
-    exit;
+    respond(200, ["ok" => true]);
   }
 
-  http_response_code(405);
-  echo json_encode(["ok" => false, "error" => "Method not allowed"]);
+  respond(405, ["ok" => false, "error" => "Method not allowed"]);
 } catch (Throwable $e) {
-  http_response_code(500);
-  echo json_encode(["ok" => false, "error" => "Server error"]);
+  respond(500, ["ok" => false, "error" => "Server error"]);
 }

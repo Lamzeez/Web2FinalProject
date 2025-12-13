@@ -1,67 +1,45 @@
 <?php
 // public/home.php
+require_once "../includes/config.php";
+require_once "../includes/auth.php";
+require_login();
+
 $page_title = "Home • NoteCore";
 $show_nav = true;
 
-require_once "../includes/auth.php";
-require_once "../includes/header.php";
-
 $username = $_SESSION["username"] ?? "User";
+
+$active = "todos";
+require_once "../includes/header.php";
 ?>
 
 <style>
-  .home-shell{
-    max-width: 1100px;
-    margin: 0 auto;
-  }
+  .home-shell{ max-width: 1100px; margin: 0 auto; }
 
   .home-top{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-top: 6px;
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:14px; flex-wrap:wrap; margin-top:6px;
   }
 
   .home-title h1{
-    margin: 0;
-    font-family: Georgia, serif;
-    font-size: 34px;
-    text-shadow: 0 3px 0 rgba(0,0,0,.18);
-    color: rgba(255,255,255,.95);
+    margin:0; font-family:Georgia,serif; font-size:34px;
+    text-shadow:0 3px 0 rgba(0,0,0,.18);
+    color:rgba(255,255,255,.95);
   }
-
   .home-title p{
-    margin: 6px 0 0;
-    color: rgba(255,255,255,.82);
-    font-weight: 700;
+    margin:6px 0 0; color:rgba(255,255,255,.82);
+    font-weight:700;
   }
 
-  .quick-actions{
-    display:flex;
-    gap:10px;
-    flex-wrap: wrap;
-  }
-  .quick-actions a{
-    text-decoration:none;
-    display:inline-block;
-  }
+  .quick-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  .quick-actions a{ text-decoration:none; display:inline-block; }
 
   .grid-3{
-    display:grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-top: 14px;
+    display:grid; grid-template-columns:1fr; gap:12px; margin-top:14px;
   }
-  @media (min-width: 980px){
-    .grid-3{ grid-template-columns: repeat(3, 1fr); }
-  }
+  @media (min-width: 980px){ .grid-3{ grid-template-columns:repeat(3,1fr); } }
 
-  .feature-link{
-    text-decoration:none;
-    display:block;
-  }
+  .feature-link{ text-decoration:none; display:block; }
 
   .card-lite{
     border-radius: var(--radius);
@@ -78,153 +56,79 @@ $username = $_SESSION["username"] ?? "User";
   .card-lite:active{ transform: translateY(1px); }
 
   .card-top{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap: 12px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
   }
-
-  .card-top h3{
-    margin: 0;
-    font-size: 18px;
-    font-weight: 900;
-    color: rgba(0,0,0,.82);
-  }
-  .card-top .sub{
-    font-size: 12px;
-    opacity: .75;
-    margin-top: 2px;
-    font-weight: 800;
-  }
+  .card-top h3{ margin:0; font-size:18px; font-weight:900; color:rgba(0,0,0,.82); }
+  .card-top .sub{ font-size:12px; opacity:.75; margin-top:2px; font-weight:800; }
 
   .badge-ico{
-    width: 46px;
-    height: 46px;
-    border-radius: 14px;
-    display:grid;
-    place-items:center;
-    background: rgba(0,0,0,.16);
-    color:#fff;
-    font-size: 22px;
-    flex: 0 0 auto;
+    width:46px; height:46px; border-radius:14px; display:grid; place-items:center;
+    background: rgba(0,0,0,.16); color:#fff; font-size:22px; flex:0 0 auto;
   }
 
   .stats{
-    display:grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-top: 12px;
+    display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px;
   }
-  @media (min-width: 980px){
-    .stats{ grid-template-columns: repeat(3, 1fr); }
-  }
+  @media (min-width: 980px){ .stats{ grid-template-columns:repeat(3,1fr); } }
 
   .stat{
-    padding: 14px;
-    border-radius: 18px;
+    padding:14px; border-radius:18px;
     background: rgba(0,0,0,.16);
     border: 1px solid rgba(255,255,255,.14);
     color: rgba(255,255,255,.92);
     box-shadow: 0 12px 24px rgba(0,0,0,.14);
   }
-  .stat b{
-    display:block;
-    font-size: 12px;
-    opacity: .85;
-    margin-bottom: 6px;
-    letter-spacing: .2px;
-  }
-  .stat .num{
-    font-size: 28px;
-    font-weight: 1000;
-    line-height: 1;
-  }
-  .stat .hint{
-    margin-top: 8px;
-    font-size: 12px;
-    opacity: .8;
-  }
-
-  .two-col{
-    display:grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-top: 12px;
-  }
-  @media (min-width: 980px){
-    .two-col{ grid-template-columns: 1fr 1fr; }
-  }
+  .stat b{ display:block; font-size:12px; opacity:.85; margin-bottom:6px; letter-spacing:.2px; }
+  .stat .num{ font-size:28px; font-weight:1000; line-height:1; }
+  .stat .hint{ margin-top:8px; font-size:12px; opacity:.8; }
 
   .mini-item{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap: 10px;
-    padding: 12px 12px;
-    border-radius: 16px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:12px 12px; border-radius:16px;
     background: rgba(255,255,255,.16);
     border: 1px solid rgba(255,255,255,.18);
     color: rgba(0,0,0,.78);
   }
-  .mini-item .meta{
-    font-size: 12px;
-    opacity: .75;
-    margin-top: 3px;
-    font-weight: 700;
+  .mini-item .meta{ font-size:12px; opacity:.75; margin-top:3px; font-weight:700; }
+
+  /* Today panels: fixed height + scroll list */
+  .today-row{
+    display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px;
   }
-  /* Make "Today's Notes/Tasks" fit in one neat row */
-    .today-row{
-    display:grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-top: 12px;
-    }
+  @media (min-width: 980px){ .today-row{ grid-template-columns:1fr 1fr; } }
 
-    @media (min-width: 980px){
-    .today-row{
-        grid-template-columns: 1fr 1fr;
-        align-items: stretch;
-    }
-    }
-
-    /* Compact the panels */
-    .today-panel{
+  .today-panel{
+    height: 320px;
     padding: 14px !important;
-    min-height: 185px;            /* keeps both aligned */
     display:flex;
     flex-direction:column;
-    }
+  }
+  .today-panel h2{
+    font-size:30px;
+    margin:0 0 4px !important;
+    font-family: Georgia, serif;
+    text-shadow: 0 2px 0 rgba(0,0,0,.18);
+  }
+  .today-panel .tagline{
+    margin: 2px 0 10px !important;
+    text-align:left;
+  }
 
-    /* Compact headings */
-    .today-panel h2{
-    font-size: 30px;
-    margin-bottom: 4px !important;
-    }
-    .today-panel .tagline{
-    margin-top: 2px !important;
-    margin-bottom: 10px !important;
-    }
-
-    /* Limit list height so it doesn't expand too much */
-    .today-list{
+  .today-list{
+    flex:1;
+    overflow-y:auto;
+    padding-right:4px;
     display:flex;
     flex-direction:column;
-    gap: 10px;
-    overflow: hidden;
-    }
+    gap:10px;
+  }
+  .today-list .mini-item{ padding:10px 12px !important; min-height:70px; }
 
-    /* Make the mini cards shorter */
-    .today-list .mini-item{
-    padding: 10px 12px !important;
-    }
-
-    /* Optional: keep only up to 2 items visible on big screens */
-    @media (min-width: 980px){
-    .today-list .mini-item:nth-child(n+3){
-        display:none;
-    }
-}
-
+  .today-list::-webkit-scrollbar{ width:8px; }
+  .today-list::-webkit-scrollbar-thumb{
+    background: rgba(0,0,0,.18);
+    border-radius: 999px;
+  }
 </style>
 
 <div class="home-shell">
@@ -241,7 +145,6 @@ $username = $_SESSION["username"] ?? "User";
     </div>
   </div>
 
-  <!-- Feature Cards -->
   <div class="panel" style="margin-top:14px;">
     <div style="text-align:center;">
       <h2 style="margin:0; font-family:Georgia,serif; text-shadow:0 2px 0 rgba(0,0,0,.18);">
@@ -291,7 +194,6 @@ $username = $_SESSION["username"] ?? "User";
     </div>
   </div>
 
-  <!-- Stats + Today -->
   <div class="stats">
     <div class="stat">
       <b>Total Notes</b>
@@ -312,101 +214,25 @@ $username = $_SESSION["username"] ?? "User";
     </div>
   </div>
 
-  <div class="two-col">
-    <div class="panel">
-      <h2 style="margin:0; font-family:Georgia,serif; text-shadow:0 2px 0 rgba(0,0,0,.18);">
-        Today’s Notes
-      </h2>
-      <div class="tagline" style="text-align:left; margin-top:6px;">
-        What you captured today.
-      </div>
+  <div class="today-row">
+    <div class="panel today-panel">
+      <h2>Today’s Notes</h2>
+      <div class="tagline">What you captured today.</div>
 
-      <div id="todayNotes" style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+      <div class="today-list" id="todayNotes">
         <div class="mini-item"><div><b>Loading…</b></div><div>⏳</div></div>
       </div>
     </div>
 
-    <div class="panel">
-      <h2 style="margin:0; font-family:Georgia,serif; text-shadow:0 2px 0 rgba(0,0,0,.18);">
-        Today’s Tasks
-      </h2>
-      <div class="tagline" style="text-align:left; margin-top:6px;">
-        Due today.
-      </div>
+    <div class="panel today-panel">
+      <h2>Today’s Tasks</h2>
+      <div class="tagline">Due today.</div>
 
-      <div id="todayTodos" style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+      <div class="today-list" id="todayTodos">
         <div class="mini-item"><div><b>Loading…</b></div><div>⏳</div></div>
       </div>
     </div>
   </div>
 </div>
-
-<script>
-  // Home dashboard pulls lightweight counts + today items (uses your existing PHP APIs)
-  async function api(url){
-    const res = await fetch(url);
-    const text = await res.text();
-    try { return JSON.parse(text); } catch { return { ok:false }; }
-  }
-
-  function esc(s=""){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function ymd(d){
-    const p=n=>String(n).padStart(2,'0');
-    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
-  }
-
-  async function loadHome(){
-    const today = ymd(new Date());
-
-    const [notesAll, todosAll, notesToday, todosToday] = await Promise.all([
-      api(`../api/notes.php`),
-      api(`../api/todos.php`),
-      api(`../api/notes.php?date=${encodeURIComponent(today)}`),
-      api(`../api/todos.php?date=${encodeURIComponent(today)}`)
-    ]);
-
-    const notes = notesAll.notes || [];
-    const todos = todosAll.todos || [];
-    const pending = todos.filter(t => Number(t.is_done) !== 1).length;
-
-    const nToday = (notesToday.notes || []).length;
-    const tToday = (todosToday.todos || []).length;
-
-    document.getElementById("statNotes").textContent = notes.length;
-    document.getElementById("statPending").textContent = pending;
-    document.getElementById("statToday").textContent = (nToday + tToday);
-
-    const tn = document.getElementById("todayNotes");
-    const tt = document.getElementById("todayTodos");
-
-    const todayNotes = (notesToday.notes || []).slice(0, 5);
-    tn.innerHTML = todayNotes.length
-      ? todayNotes.map(n => `
-        <div class="mini-item">
-          <div>
-            <b>${esc(n.title || "Untitled")}</b>
-            <div class="meta">${esc(n.note_date || "")}</div>
-          </div>
-          <div>📝</div>
-        </div>
-      `).join("")
-      : `<div class="mini-item"><div><b>No notes today</b><div class="meta">Create one in Effortless Notes</div></div><div>✨</div></div>`;
-
-    const todayTodos = (todosToday.todos || []).slice(0, 5);
-    tt.innerHTML = todayTodos.length
-      ? todayTodos.map(t => `
-        <div class="mini-item">
-          <div>
-            <b>${esc(t.title || "Untitled task")}</b>
-            <div class="meta">Due: ${esc(t.due_date || "")}</div>
-          </div>
-          <div>${Number(t.is_done) === 1 ? "✅" : "🕒"}</div>
-        </div>
-      `).join("")
-      : `<div class="mini-item"><div><b>No tasks due today</b><div class="meta">Add one in Gentle To-Dos</div></div><div>🌿</div></div>`;
-  }
-
-  loadHome();
-</script>
 
 <?php require_once "../includes/footer.php"; ?>

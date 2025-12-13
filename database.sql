@@ -33,3 +33,6 @@ CREATE TABLE todos (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX(user_id, due_date, is_done)
 );
+
+ALTER TABLE todos ADD COLUMN due_time TIME NULL AFTER due_date;
+

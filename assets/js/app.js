@@ -1,5 +1,7 @@
 /* =========================
-   NoteCore - app.js (FINAL)
+   NoteCore - app.js (CLEAN + UPDATED)
+   Notes: shows "Last edited"
+   Todos: supports due_time
    ========================= */
 
 async function api(url, options = {}) {
@@ -8,7 +10,6 @@ async function api(url, options = {}) {
     ...options,
   });
 
-  // If API returns non-JSON (e.g., PHP error), this prevents hard crash
   const text = await res.text();
   try {
     return JSON.parse(text);
@@ -29,6 +30,25 @@ function escapeHtml(s = "") {
     '"': "&quot;",
     "'": "&#39;",
   }[c]));
+}
+
+function fmtDateTime(dt) {
+  if (!dt) return "";
+  const s = String(dt).replace("T", " ");
+  return s.length >= 16 ? s.slice(0, 16) : s;
+}
+
+function timeHHMM(t) {
+  if (!t) return "";
+  // accepts "HH:MM:SS" or "HH:MM"
+  const s = String(t);
+  return s.length >= 5 ? s.slice(0, 5) : s;
+}
+
+function dueText(date, time) {
+  if (!date) return "No due date";
+  const tt = timeHHMM(time);
+  return tt ? `${date} • ${tt}` : date;
 }
 
 /* =========================
@@ -100,7 +120,6 @@ async function ncActionFlow(promiseFn, msgs, opts = {}) {
   const buttons = opts.buttons || [];
   buttons.forEach((b) => ncSetBusy(b, true));
 
-  // show “working”
   ncDialogShow({
     title: msgs.pendingTitle || "Working...",
     sub: msgs.pendingSub || "Please wait...",
@@ -173,7 +192,6 @@ function ncConfirm({
     if (okBtn) okBtn.onclick = () => cleanup(true);
     if (cancelBtn) cancelBtn.onclick = () => cleanup(false);
 
-    // click outside cancels
     root.onclick = (e) => {
       if (e.target && e.target.classList && e.target.classList.contains("nc-confirm-backdrop")) cleanup(false);
     };
@@ -196,9 +214,14 @@ async function loadNotes() {
     const row = document.createElement("div");
     row.className = "item";
     row.innerHTML = `
-      <div>
-        <b>${escapeHtml(n.title)}</b>
-        <div style="font-size:12px; opacity:.75;">${escapeHtml(n.note_date)}</div>
+      <div style="min-width:0;">
+        <b title="${escapeHtml(n.title)}" style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          ${escapeHtml(n.title)}
+        </b>
+        <div style="font-size:12px; opacity:.75;">
+          ${escapeHtml(n.note_date || "")}
+          ${n.updated_at ? ` • Last edited: ${escapeHtml(fmtDateTime(n.updated_at))}` : ""}
+        </div>
       </div>
       <div style="display:flex; gap:8px;">
         <button class="iconbtn" data-edit-note="${n.id}">✏️</button>
@@ -274,6 +297,7 @@ async function saveNote() {
   };
 
   if (!payload.title) return alert("Title required.");
+  if (!payload.content) return alert("Content required.");
 
   if (id) {
     await ncActionFlow(
@@ -325,11 +349,16 @@ async function loadTodos() {
     const row = document.createElement("div");
     row.className = "item";
     row.innerHTML = `
-      <div style="display:flex; align-items:center; gap:10px;">
-        <input type="checkbox" data-done-todo="${t.id}" ${done ? "checked" : ""} />
-        <b style="text-decoration:${done ? "line-through" : "none"};">
-          ${escapeHtml(t.title)}
-        </b>
+      <div style="min-width:0;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" data-done-todo="${t.id}" ${done ? "checked" : ""} />
+          <b style="text-decoration:${done ? "line-through" : "none"}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            ${escapeHtml(t.title)}
+          </b>
+        </div>
+        <div style="font-size:12px; opacity:.75; margin-left:32px;">
+          Due: ${escapeHtml(dueText(t.due_date, t.due_time))}
+        </div>
       </div>
       <div style="display:flex; gap:8px;">
         <button class="iconbtn" data-edit-todo="${t.id}">✏️</button>
@@ -406,7 +435,14 @@ function openTodo(todo = null) {
   qs("todoModal").style.display = "block";
   qs("todoId").value = todo?.id || "";
   qs("todoTitle").value = todo?.title || "";
-  qs("todoDueDate").value = todo?.due_date || new Date().toISOString().slice(0, 10);
+
+  // Due date (optional). If creating from Calendar, it passes due_date.
+  const dateEl = qs("todoDueDate");
+  if (dateEl) dateEl.value = todo?.due_date || "";
+
+  // Due time (optional)
+  const timeEl = qs("todoDueTime");
+  if (timeEl) timeEl.value = todo?.due_time ? timeHHMM(todo.due_time) : "";
 }
 
 function closeTodo() {
@@ -420,10 +456,14 @@ async function saveTodo() {
   const payload = {
     id: id ? Number(id) : undefined,
     title: (qs("todoTitle")?.value || "").trim(),
-    due_date: (qs("todoDueDate")?.value || ""),
+    due_date: (qs("todoDueDate")?.value || null),
+    due_time: (qs("todoDueTime")?.value || null), // "HH:MM"
   };
 
   if (!payload.title) return alert("Task title required.");
+
+  if (!payload.due_date) payload.due_date = null;
+  if (!payload.due_time) payload.due_time = null;
 
   if (id) {
     await ncActionFlow(
@@ -600,9 +640,11 @@ async function loadCalendarDay() {
     const row = document.createElement("div");
     row.className = "item";
     row.innerHTML = `
-      <div>
+      <div style="min-width:0;">
         <b>📝 ${escapeHtml(n.title)}</b>
-        <div style="font-size:12px; opacity:.75;">Note</div>
+        <div style="font-size:12px; opacity:.75;">
+          Note${n.updated_at ? ` • Last edited: ${escapeHtml(fmtDateTime(n.updated_at))}` : ""}
+        </div>
       </div>
       <div style="display:flex; gap:8px;">
         <button class="iconbtn" data-cal-edit-note="${n.id}">✏️</button>
@@ -618,11 +660,16 @@ async function loadCalendarDay() {
     const row = document.createElement("div");
     row.className = "item";
     row.innerHTML = `
-      <div style="display:flex; align-items:center; gap:10px;">
-        <input type="checkbox" data-cal-done="${t.id}" ${done ? "checked" : ""} />
-        <b style="text-decoration:${done ? "line-through" : "none"};">
-          ✅ ${escapeHtml(t.title)}
-        </b>
+      <div style="min-width:0;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" data-cal-done="${t.id}" ${done ? "checked" : ""} />
+          <b style="text-decoration:${done ? "line-through" : "none"};">
+            ✅ ${escapeHtml(t.title)}
+          </b>
+        </div>
+        <div style="font-size:12px; opacity:.75; margin-left:32px;">
+          Due: ${escapeHtml(dueText(t.due_date, t.due_time))}
+        </div>
       </div>
       <div style="display:flex; gap:8px;">
         <button class="iconbtn" data-cal-edit-todo="${t.id}">✏️</button>
@@ -741,6 +788,7 @@ async function refreshCalendarIfPresent() {
 
 /* =========================
    PROFILE (profile.php)
+   (unchanged from your version)
    ========================= */
 
 let selectedTheme = null;
@@ -804,10 +852,8 @@ async function saveProfile() {
 
   if (!res || res.ok === false) return;
 
-  // apply theme instantly
   document.documentElement.setAttribute("data-theme", res.user?.theme || selectedTheme);
 
-  // lock fields
   qs("pfUsername").disabled = true;
   qs("pfEmail").disabled = true;
   qs("pfPassword").value = "";
@@ -845,18 +891,22 @@ async function deleteAccount() {
 
 document.addEventListener("DOMContentLoaded", () => {
   // NOTES page
-  if (qs("btnNewNote")) qs("btnNewNote").addEventListener("click", () => openNote(null));
-  if (qs("closeNote")) qs("closeNote").addEventListener("click", closeNote);
-  if (qs("saveNote")) qs("saveNote").addEventListener("click", saveNote);
-  if (qs("noteSearch")) qs("noteSearch").addEventListener("input", loadNotes);
-  loadNotes();
+  if (qs("notesList")) {
+    qs("btnNewNote")?.addEventListener("click", () => openNote(null));
+    qs("closeNote")?.addEventListener("click", closeNote);
+    qs("saveNote")?.addEventListener("click", saveNote);
+    qs("noteSearch")?.addEventListener("input", loadNotes);
+    loadNotes();
+  }
 
   // TODOS page
-  if (qs("btnNewTodo")) qs("btnNewTodo").addEventListener("click", () => openTodo(null));
-  if (qs("closeTodo")) qs("closeTodo").addEventListener("click", closeTodo);
-  if (qs("saveTodo")) qs("saveTodo").addEventListener("click", saveTodo);
-  if (qs("todoSearch")) qs("todoSearch").addEventListener("input", loadTodos);
-  loadTodos();
+  if (qs("todosList")) {
+    qs("btnNewTodo")?.addEventListener("click", () => openTodo(null));
+    qs("closeTodo")?.addEventListener("click", closeTodo);
+    qs("saveTodo")?.addEventListener("click", saveTodo);
+    qs("todoSearch")?.addEventListener("input", loadTodos);
+    loadTodos();
+  }
 
   // CALENDAR page
   if (qs("calendarGrid")) {
@@ -889,8 +939,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     qs("calAddTask")?.addEventListener("click", () => {
-      openTodo({ due_date: calSelectedDate, title: "" });
+      openTodo({ due_date: calSelectedDate, due_time: "", title: "" });
       if (qs("todoDueDate")) qs("todoDueDate").value = calSelectedDate;
+      if (qs("todoDueTime")) qs("todoDueTime").value = "";
     });
 
     refreshMonth();
@@ -912,7 +963,6 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedTheme = btn.dataset.theme;
         markThemeSelected();
 
-        // save theme instantly
         const res = await api("../api/profile.php", {
           method: "PUT",
           body: JSON.stringify({ theme: selectedTheme }),
@@ -924,3 +974,101 @@ document.addEventListener("DOMContentLoaded", () => {
     qs("pfDelete")?.addEventListener("click", deleteAccount);
   }
 });
+
+// Password peek toggle
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".pw-toggle");
+  if (!btn) return;
+
+  const id = btn.getAttribute("data-target");
+  const input = document.getElementById(id);
+  if (!input) return;
+
+  const isPw = input.type === "password";
+  input.type = isPw ? "text" : "password";
+  btn.textContent = isPw ? "🙈" : "👁";
+});
+
+
+/* =========================
+   HOME (home.php)
+   ========================= */
+
+function ncFmtStamp(s) {
+  if (!s) return "";
+  return String(s).replace("T", " ").slice(0, 16);
+}
+
+function ncFmtTime(s) {
+  if (!s) return "";
+  return String(s).slice(0, 5);
+}
+
+async function loadHomeDashboard() {
+  if (!qs("statNotes") || !qs("todayNotes") || !qs("todayTodos")) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [notesAll, todosAll, notesToday, todosToday] = await Promise.all([
+    api("../api/notes.php"),
+    api("../api/todos.php"),
+    api(`../api/notes.php?date=${encodeURIComponent(today)}`),
+    api(`../api/todos.php?date=${encodeURIComponent(today)}`),
+  ]);
+
+  const notes = notesAll.notes || [];
+  const todos = todosAll.todos || [];
+
+  const pending = todos.filter((t) => Number(t.is_done) !== 1).length;
+
+  const nToday = (notesToday.notes || []).length;
+  const tToday = (todosToday.todos || []).length;
+
+  qs("statNotes").textContent = notes.length;
+  qs("statPending").textContent = pending;
+  qs("statToday").textContent = nToday + tToday;
+
+  const tn = qs("todayNotes");
+  const tt = qs("todayTodos");
+
+  const todayNotes = notesToday.notes || [];
+  tn.innerHTML = todayNotes.length
+    ? todayNotes
+        .map((n) => {
+          const edited = ncFmtStamp(n.updated_at);
+          const meta = `${escapeHtml(n.note_date || "")}${edited ? " • Last edited: " + escapeHtml(edited) : ""}`;
+          return `
+            <div class="mini-item">
+              <div>
+                <b>${escapeHtml(n.title || "Untitled")}</b>
+                <div class="meta">${meta}</div>
+              </div>
+              <div>📝</div>
+            </div>
+          `;
+        })
+        .join("")
+    : `<div class="mini-item"><div><b>No notes today</b><div class="meta">Create one in Effortless Notes</div></div><div>✨</div></div>`;
+
+  const todayTodos = todosToday.todos || [];
+  tt.innerHTML = todayTodos.length
+    ? todayTodos
+        .map((t) => {
+          const time = ncFmtTime(t.due_time);
+          const due = `${escapeHtml(t.due_date || "")}${time ? " • " + escapeHtml(time) : ""}`;
+          const icon = Number(t.is_done) === 1 ? "✅" : "🕒";
+          return `
+            <div class="mini-item">
+              <div>
+                <b>${escapeHtml(t.title || "Untitled task")}</b>
+                <div class="meta">Due: ${due}</div>
+              </div>
+              <div>${icon}</div>
+            </div>
+          `;
+        })
+        .join("")
+    : `<div class="mini-item"><div><b>No tasks due today</b><div class="meta">Add one in Gentle To-Dos</div></div><div>🌿</div></div>`;
+}
+
+document.addEventListener("DOMContentLoaded", loadHomeDashboard);

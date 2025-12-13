@@ -9,6 +9,12 @@ $error = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $username = trim($_POST["username"] ?? "");
   $email = trim($_POST["email"] ?? "");
+  $pass = $_POST["password"] ?? "";
+  $confirm = $_POST["confirm_password"] ?? "";
+
+  if ($pass !== $confirm) {
+    $error = "Passwords do not match.";
+  }
   $password = $_POST["password"] ?? "";
 
   if (strlen($username) < 3 || strlen($password) < 6) {
@@ -40,7 +46,17 @@ require_once "../includes/header.php";
 
   <form method="post" style="display:flex; flex-direction:column; gap:10px;">
     <input class="input" name="username" placeholder="Username" required />
-    <input class="input" name="password" placeholder="Password" type="password" required />
+
+    <div class="field pw-field">
+      <input class="input" type="password" name="password" id="register_password" placeholder="Password" required>
+      <button type="button" class="pw-toggle" data-target="register_password" aria-label="Show password">👁</button>
+    </div>
+
+    <div class="field pw-field">
+      <input class="input" type="password" name="confirm_password" id="confirm_password" placeholder="Confirm Password" required>
+      <button type="button" class="pw-toggle" data-target="confirm_password" aria-label="Show password">👁</button>
+    </div>
+
     <input class="input" name="email" placeholder="Email" type="email" required />
     <button class="btn" type="submit">Register</button>
   </form>

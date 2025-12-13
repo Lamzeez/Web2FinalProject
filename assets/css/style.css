@@ -526,3 +526,40 @@ p.tagline{
   .side-logo{ height: 74px; }
   .side-logo img{ width: 52px; height: 52px; }
 }
+
+.pw-field{
+  position: relative;
+}
+
+.pw-field .input{
+  padding-right: 52px; /* space for the eye button */
+  display: block;
+}
+
+/* optional: make the button look like part of the field */
+.pw-toggle{
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(0,0,0,.18);
+  color: rgba(255,255,255,.95);
+
+  display: grid;
+  place-items: center;
+
+  cursor: pointer;
+}
+.pw-toggle:active{
+  transform: translateY(-50%) translateY(1px);
+}
+
+.pw-toggle:hover{ opacity: 1; }
+
