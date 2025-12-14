@@ -29,7 +29,7 @@ require_once "../includes/header.php";
     <b id="calSelectedLabel"></b>
   </div>
 
-  <div class="list" id="calItems" style="margin-top:10px;"></div>
+  <div class="list scroll-4" id="calItems" style="margin-top:10px;"></div>
 
   <div style="display:flex; gap:10px; margin-top:12px;">
     <button class="btn" id="calAddNote" style="flex:1;">＋ Add Note</button>

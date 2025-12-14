@@ -84,7 +84,14 @@ try {
 
     $title = trim($data["title"] ?? "");
     $content = trim($data["content"] ?? "");
-    $note_date = $data["note_date"] ?? date("Y-m-d");
+    $note_date = $data["note_date"] ?? null;
+
+    // If note_date not provided, keep existing value (don’t change calendar day)
+    if (empty($note_date)) {
+      $keep = $pdo->prepare("SELECT note_date FROM notes WHERE id = ? AND user_id = ?");
+      $keep->execute([$id, $user_id]);
+      $note_date = $keep->fetchColumn() ?: date("Y-m-d");
+    }
 
     if ($title === "" || $content === "") {
       respond(400, ["ok" => false, "error" => "Title and content are required."]);

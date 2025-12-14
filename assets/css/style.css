@@ -140,6 +140,30 @@ p.tagline{
   gap:10px;
   margin-top: 10px;
 }
+
+/* Scrollable list container (fits ~8 items) */
+:root{
+  --list-gap: 10px;       /* matches .list gap */
+  --list-item-h: 74px;    /* tweak if you want tighter/taller rows */
+}
+
+.list.scroll-8{
+  max-height: calc((8 * var(--list-item-h)) + (7 * var(--list-gap)));
+  overflow-y: auto;
+  padding-right: 6px;         /* keeps content from hiding under scrollbar */
+  scrollbar-gutter: stable;   /* prevents layout shift when scrollbar appears */
+  overscroll-behavior: contain;
+}
+
+/* Calendar: scrollable list container (fits ~4 items) */
+.list.scroll-4{
+  max-height: calc((4 * var(--list-item-h)) + (3 * var(--list-gap)));
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
 .item{
   display:flex; align-items:center; justify-content:space-between; gap:10px;
   padding: 12px 14px;
@@ -452,8 +476,8 @@ p.tagline{
   text-decoration: none;
 }
 .side-logo img{
-  width: 90px;
-  height: 90px;
+  width: 130px;
+  height: 130px;
   object-fit: contain;
   filter: drop-shadow(0 12px 18px rgba(0,0,0,.22));
 }

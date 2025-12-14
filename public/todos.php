@@ -84,7 +84,7 @@ require_once "../includes/header.php";
     <input class="input" id="todoSearch" placeholder="Search tasks..." />
   </div>
 
-  <div class="list" id="todosList"></div>
+  <div class="list scroll-8" id="todosList"></div>
 </div>
 
 <!-- Todo modal -->

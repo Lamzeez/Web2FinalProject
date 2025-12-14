@@ -34,10 +34,9 @@ require_once "../includes/header.php";
     margin-top: 0 !important;
   }
 
-  /* Logo: responsive but capped */
   .welcome-page .brand .logo-hero{
-    width: clamp(220px, 32vw, 500px);
-    height: clamp(220px, 32vw, 500px);
+    width: clamp(132px, 19.2vw, 300px);
+    height: clamp(132px, 19.2vw, 300px);
     border-radius: 42px;
   }
 
@@ -287,10 +286,10 @@ require_once "../includes/header.php";
 
             <div class="item">
                 <div>
-                <b>4) Make it yours</b>
-                <div style="font-size:12px; opacity:.75;">Adjust theme anytime in Profile Settings</div>
+                <b>4) Secure and efficient setup</b>
+                <div style="font-size:12px; opacity:.75;">Enhance security, privacy, and efficiency</div>
                 </div>
-                <div>🎨</div>
+                <div>⚙️</div>
             </div>
             </div>
         </div>

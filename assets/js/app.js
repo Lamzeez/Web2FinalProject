@@ -130,6 +130,17 @@ async function ncActionFlow(promiseFn, msgs, opts = {}) {
   try {
     const result = await promiseFn();
 
+    // ✅ IMPORTANT: if backend says ok:false, show error (don’t fake success)
+    if (result && result.ok === false) {
+      await ncDialogShow({
+        title: msgs.errorTitle || "Something went wrong",
+        sub: result.error || msgs.errorSub || "Please try again.",
+        state: "error",
+        duration: 1200,
+      });
+      return result;
+    }
+
     await ncDialogShow({
       title: msgs.successTitle || "Done!",
       sub: msgs.successSub || "Success.",
@@ -150,6 +161,7 @@ async function ncActionFlow(promiseFn, msgs, opts = {}) {
     buttons.forEach((b) => ncSetBusy(b, false));
   }
 }
+
 
 /* =========================
    Confirm Modal
@@ -202,6 +214,30 @@ function ncConfirm({
    NOTES (notes.php + calendar.php)
    ========================= */
 
+// Track original values so Save is blocked when nothing changed
+let ncNoteOriginal = null;
+let ncTodoOriginal = null;
+
+function ncSnapNote() {
+  return {
+    title: (qs("noteTitle")?.value || "").trim(),
+    content: (qs("noteContent")?.value || "").trim(),
+    note_date: (qs("noteDate")?.value || "").trim(),
+  };
+}
+
+function ncSnapTodo() {
+  return {
+    title: (qs("todoTitle")?.value || "").trim(),
+    due_date: (qs("todoDueDate")?.value || "").trim(), // keep "" for empty
+    due_time: (qs("todoDueTime")?.value || "").trim(), // keep "" for empty (HH:MM)
+  };
+}
+
+function ncSame(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 async function loadNotes() {
   const list = qs("notesList");
   if (!list) return;
@@ -213,14 +249,16 @@ async function loadNotes() {
   (data.notes || []).forEach((n) => {
     const row = document.createElement("div");
     row.className = "item";
+    const stamp = n.updated_at || n.created_at; // fallback for brand-new notes
+    const lastEdited = stamp ? `Last edited: ${escapeHtml(fmtDateTime(stamp))}` : "";
+
     row.innerHTML = `
       <div style="min-width:0;">
         <b title="${escapeHtml(n.title)}" style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
           ${escapeHtml(n.title)}
         </b>
         <div style="font-size:12px; opacity:.75;">
-          ${escapeHtml(n.note_date || "")}
-          ${n.updated_at ? ` • Last edited: ${escapeHtml(fmtDateTime(n.updated_at))}` : ""}
+          ${lastEdited}
         </div>
       </div>
       <div style="display:flex; gap:8px;">
@@ -279,10 +317,16 @@ function openNote(note = null) {
   qs("noteTitle").value = note?.title || "";
   qs("noteContent").value = note?.content || "";
   qs("noteDate").value = note?.note_date || new Date().toISOString().slice(0, 10);
+
+  // ✅ store original (what user opened)
+  ncNoteOriginal = ncSnapNote();
 }
 
 function closeNote() {
   if (qs("noteModal")) qs("noteModal").style.display = "none";
+
+  // ✅ reset
+  ncNoteOriginal = null;
 }
 
 async function saveNote() {
@@ -299,6 +343,17 @@ async function saveNote() {
   if (!payload.title) return alert("Title required.");
   if (!payload.content) return alert("Content required.");
 
+   // ✅ NEW: block save if editing and nothing changed
+  if (id && ncNoteOriginal && ncSame(ncNoteOriginal, ncSnapNote())) {
+    await ncDialogShow({
+      title: "No changes to save",
+      sub: "Edit something first, then click Save.",
+      state: "error",
+      duration: 1200,
+    });
+    return;
+  }
+  
   if (id) {
     await ncActionFlow(
       () => api("../api/notes.php", { method: "PUT", body: JSON.stringify(payload) }),
@@ -436,17 +491,21 @@ function openTodo(todo = null) {
   qs("todoId").value = todo?.id || "";
   qs("todoTitle").value = todo?.title || "";
 
-  // Due date (optional). If creating from Calendar, it passes due_date.
   const dateEl = qs("todoDueDate");
   if (dateEl) dateEl.value = todo?.due_date || "";
 
-  // Due time (optional)
   const timeEl = qs("todoDueTime");
   if (timeEl) timeEl.value = todo?.due_time ? timeHHMM(todo.due_time) : "";
+
+  // ✅ store original
+  ncTodoOriginal = ncSnapTodo();
 }
 
 function closeTodo() {
   if (qs("todoModal")) qs("todoModal").style.display = "none";
+
+  // ✅ reset
+  ncTodoOriginal = null;
 }
 
 async function saveTodo() {
@@ -461,6 +520,17 @@ async function saveTodo() {
   };
 
   if (!payload.title) return alert("Task title required.");
+
+  // ✅ NEW: block save if editing and nothing changed (compare raw input snapshot)
+  if (id && ncTodoOriginal && ncSame(ncTodoOriginal, ncSnapTodo())) {
+    await ncDialogShow({
+      title: "No changes to save",
+      sub: "Update the task details first, then click Save.",
+      state: "error",
+      duration: 1200,
+    });
+    return;
+  }
 
   if (!payload.due_date) payload.due_date = null;
   if (!payload.due_time) payload.due_time = null;
@@ -788,10 +858,22 @@ async function refreshCalendarIfPresent() {
 
 /* =========================
    PROFILE (profile.php)
-   (unchanged from your version)
    ========================= */
 
-let selectedTheme = null;
+let ncProfileOriginal = null;
+
+// Only track things that the user can actually edit
+function ncSnapProfile() {
+  return {
+    username: (qs("pfUsername")?.value || "").trim(),
+  };
+}
+
+function enableInputNoFocus(id) {
+  const el = qs(id);
+  if (!el) return;
+  el.disabled = false;
+}
 
 async function loadProfile() {
   if (!qs("pfUsername")) return;
@@ -802,40 +884,101 @@ async function loadProfile() {
   const u = res.user || {};
   qs("pfUsername").value = u.username || "";
   qs("pfEmail").value = u.email || "";
-  qs("pfPassword").value = "";
 
-  selectedTheme = u.theme || "teal";
-  markThemeSelected();
-}
+  // lock everything by default
+  qs("pfUsername").disabled = true;
+  qs("pfEmail").disabled = true;
 
-function markThemeSelected() {
-  const wrap = qs("themePickers");
-  if (!wrap) return;
+  // password fields are locked until user clicks ✏️ password
+  if (qs("pfCurrentPassword")) { qs("pfCurrentPassword").value = ""; qs("pfCurrentPassword").disabled = true; }
+  if (qs("pfNewPassword")) { qs("pfNewPassword").value = ""; qs("pfNewPassword").disabled = true; }
+  if (qs("pfConfirmPassword")) { qs("pfConfirmPassword").value = ""; qs("pfConfirmPassword").disabled = true; }
 
-  wrap.querySelectorAll("button[data-theme]").forEach((btn) => {
-    const t = btn.dataset.theme;
-    btn.textContent = (t === selectedTheme) ? "✓" : " ";
-  });
-}
-
-function enableInput(id) {
-  const el = qs(id);
-  if (!el) return;
-  el.disabled = false;
-  el.focus();
+  // remember unchanged snapshot
+  ncProfileOriginal = ncSnapProfile();
 }
 
 async function saveProfile() {
   const btn = qs("pfSave");
 
-  const payload = {
-    username: (qs("pfUsername")?.value || "").trim(),
-    email: (qs("pfEmail")?.value || "").trim(),
-    password: (qs("pfPassword")?.value || "").trim(),
-    theme: selectedTheme,
-  };
+  const username = (qs("pfUsername")?.value || "").trim();
 
-  if (!payload.password) delete payload.password;
+  const currentPw = (qs("pfCurrentPassword")?.value || "").trim();
+  const newPw = (qs("pfNewPassword")?.value || "").trim();
+  const confirmPw = (qs("pfConfirmPassword")?.value || "").trim();
+
+  const pwRule = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+  // Only enforce password rules if user explicitly chose password editing OR typed something
+  const pwMode =
+    (qs("pfCurrentPassword") && qs("pfCurrentPassword").disabled === false) ||
+    (qs("pfNewPassword") && qs("pfNewPassword").disabled === false) ||
+    (qs("pfConfirmPassword") && qs("pfConfirmPassword").disabled === false) ||
+    currentPw || newPw || confirmPw;
+
+  if (pwMode) {
+    if (!currentPw) {
+      await ncDialogShow({
+        title: "Current password required",
+        sub: "Enter your current password to change it.",
+        state: "error",
+        duration: 1200,
+      });
+      return;
+    }
+
+    if (!newPw) {
+      await ncDialogShow({
+        title: "New password required",
+        sub: "Enter a new password.",
+        state: "error",
+        duration: 1200,
+      });
+      return;
+    }
+
+    if (newPw !== confirmPw) {
+      await ncDialogShow({
+        title: "Passwords do not match",
+        sub: "Confirm your new password correctly.",
+        state: "error",
+        duration: 1200,
+      });
+      return;
+    }
+
+    if (!pwRule.test(newPw)) {
+      await ncDialogShow({
+        title: "Invalid password",
+        sub: "Use 8+ chars with uppercase, lowercase, number, and special character.",
+        state: "error",
+        duration: 1400,
+      });
+      return;
+    }
+  }
+
+  // Payload (email is never sent)
+  const payload = { username };
+
+  // Only send password update if user entered a new password
+  if (newPw) {
+    payload.current_password = currentPw;
+    payload.new_password = newPw;
+  }
+
+  // ✅ Username-only edit is allowed:
+  // Block only when username unchanged AND no new password
+  const snap = ncSnapProfile();
+  if (!newPw && ncProfileOriginal && ncSame(ncProfileOriginal, snap)) {
+    await ncDialogShow({
+      title: "No changes to save",
+      sub: "Edit your username or change your password, then click Save.",
+      state: "error",
+      duration: 1200,
+    });
+    return;
+  }
 
   const res = await ncActionFlow(
     () => api("../api/profile.php", { method: "PUT", body: JSON.stringify(payload) }),
@@ -852,12 +995,19 @@ async function saveProfile() {
 
   if (!res || res.ok === false) return;
 
-  document.documentElement.setAttribute("data-theme", res.user?.theme || selectedTheme);
-
+  // lock fields again
   qs("pfUsername").disabled = true;
   qs("pfEmail").disabled = true;
-  qs("pfPassword").value = "";
+
+  // clear + lock password fields again
+  if (qs("pfCurrentPassword")) { qs("pfCurrentPassword").value = ""; qs("pfCurrentPassword").disabled = true; }
+  if (qs("pfNewPassword")) { qs("pfNewPassword").value = ""; qs("pfNewPassword").disabled = true; }
+  if (qs("pfConfirmPassword")) { qs("pfConfirmPassword").value = ""; qs("pfConfirmPassword").disabled = true; }
+
+  // refresh snapshot
+  ncProfileOriginal = ncSnapProfile();
 }
+
 
 async function deleteAccount() {
   const btn = qs("pfDelete");
@@ -871,19 +1021,22 @@ async function deleteAccount() {
   });
   if (!yes) return;
 
-  await ncActionFlow(
+  const res = await ncActionFlow(
     () => api("../api/profile.php", { method: "DELETE" }),
     {
       pendingTitle: "Deleting account...",
       pendingSub: "This may take a moment",
-      successTitle: "Account deleted",
-      successSub: "Redirecting...",
+      successTitle: "Deleted",
+      successSub: "Your account has been removed.",
+      errorTitle: "Delete failed",
+      errorSub: "Please try again.",
     },
     { buttons: [btn] }
   );
 
-  window.location.href = "index.php";
+  if (res?.ok) window.location.href = "login.php";
 }
+
 
 /* =========================
    INIT
@@ -951,28 +1104,37 @@ document.addEventListener("DOMContentLoaded", () => {
   if (qs("pfUsername")) {
     loadProfile();
 
-    qs("pfEditUsername")?.addEventListener("click", () => enableInput("pfUsername"));
-    qs("pfEditEmail")?.addEventListener("click", () => enableInput("pfEmail"));
-
-    qs("pfSave")?.addEventListener("click", saveProfile);
-    qs("pfCancel")?.addEventListener("click", () => window.location.reload());
-
-    const wrap = qs("themePickers");
-    wrap?.querySelectorAll("button[data-theme]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        selectedTheme = btn.dataset.theme;
-        markThemeSelected();
-
-        const res = await api("../api/profile.php", {
-          method: "PUT",
-          body: JSON.stringify({ theme: selectedTheme }),
-        });
-        if (res.ok) document.documentElement.setAttribute("data-theme", res.user?.theme || selectedTheme);
-      });
+    // ✅ User can choose to edit username only
+    qs("pfEditUsername")?.addEventListener("click", () => {
+      const u = qs("pfUsername");
+      if (!u) return;
+      u.disabled = false;
+      u.focus();
     });
 
+    // ✅ Password editing only when user clicks ✏️ password
+    qs("pfEditPassword")?.addEventListener("click", () => {
+      const cur = qs("pfCurrentPassword");
+      const nw  = qs("pfNewPassword");
+      const cf  = qs("pfConfirmPassword");
+
+      if (cur) { cur.disabled = false; cur.value = ""; }
+      if (nw)  { nw.disabled  = false; nw.value  = ""; }
+      if (cf)  { cf.disabled  = false; cf.value  = ""; }
+
+      cur?.focus();
+    });
+
+    qs("pfSave")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      saveProfile();
+    });
+
+    qs("pfCancel")?.addEventListener("click", () => window.location.reload());
     qs("pfDelete")?.addEventListener("click", deleteAccount);
   }
+
+
 });
 
 // Password peek toggle
@@ -1007,6 +1169,15 @@ function ncFmtTime(s) {
 async function loadHomeDashboard() {
   if (!qs("statNotes") || !qs("todayNotes") || !qs("todayTodos")) return;
 
+  // ✅ Keep the Welcome username synced with the latest profile username
+  const nameEl = qs("homeUsername");
+  if (nameEl) {
+    const prof = await api("./api/profile.php");
+    if (prof?.ok && prof.user?.username) {
+      nameEl.textContent = prof.user.username;
+    }
+  }
+
   const today = new Date().toISOString().slice(0, 10);
 
   const [notesAll, todosAll, notesToday, todosToday] = await Promise.all([
@@ -1035,8 +1206,10 @@ async function loadHomeDashboard() {
   tn.innerHTML = todayNotes.length
     ? todayNotes
         .map((n) => {
-          const edited = ncFmtStamp(n.updated_at);
-          const meta = `${escapeHtml(n.note_date || "")}${edited ? " • Last edited: " + escapeHtml(edited) : ""}`;
+          const stamp = n.updated_at || n.created_at;   // fallback for brand-new notes
+          const edited = ncFmtStamp(stamp);
+          const meta = edited ? `Last edited: ${escapeHtml(edited)}` : "";
+
           return `
             <div class="mini-item">
               <div>
@@ -1072,3 +1245,78 @@ async function loadHomeDashboard() {
 }
 
 document.addEventListener("DOMContentLoaded", loadHomeDashboard);
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const pw = document.getElementById("register_password");
+  const cp = document.getElementById("confirm_password");
+  if (!pw || !cp) return; // not on register page
+
+  const form = pw.closest("form");
+  if (!form) return;
+
+  const strongRe = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+  function validate() {
+    // strength
+    if (!strongRe.test(pw.value)) {
+      pw.setCustomValidity("Password must be 8+ chars with uppercase, lowercase, number, and special character.");
+    } else {
+      pw.setCustomValidity("");
+    }
+
+    // match
+    if (cp.value && pw.value !== cp.value) {
+      cp.setCustomValidity("Passwords do not match.");
+    } else {
+      cp.setCustomValidity("");
+    }
+  }
+
+  pw.addEventListener("input", validate);
+  cp.addEventListener("input", validate);
+
+  form.addEventListener("submit", (e) => {
+    validate();
+    if (!form.checkValidity()) {
+      e.preventDefault();
+      form.reportValidity();
+    }
+  });
+});
+
+// ✅ Confirm before logging out (works for <a href="logout.php">...</a> in nav/header)
+document.addEventListener("DOMContentLoaded", () => {
+  const links = Array.from(document.querySelectorAll('a[href*="logout.php"]'));
+  if (!links.length) return;
+
+  links.forEach((a) => {
+    a.addEventListener("click", async (e) => {
+      // allow ctrl/cmd-click / new tab
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+      e.preventDefault();
+
+      const href = a.getAttribute("href") || a.href || "logout.php";
+
+      // If confirm modal isn't present on this page, fallback to native confirm
+      const hasNcConfirm = typeof ncConfirm === "function" && !!document.getElementById("ncConfirm");
+
+      let ok = false;
+      if (hasNcConfirm) {
+        ok = await ncConfirm({
+          title: "Log out?",
+          message: "You will be signed out of NoteCore.",
+          confirmText: "Log out",
+          cancelText: "Cancel",
+          danger: true,
+        });
+      } else {
+        ok = window.confirm("Log out?\n\nYou will be signed out of NoteCore.");
+      }
+
+      if (!ok) return;
+      window.location.href = href;
+    });
+  });
+});

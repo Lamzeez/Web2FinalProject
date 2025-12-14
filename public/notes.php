@@ -74,7 +74,7 @@ require_once "../includes/header.php";
     <input class="input" id="noteSearch" placeholder="Search notes..." />
   </div>
 
-  <div class="list" id="notesList"></div>
+  <div class="list scroll-8" id="notesList"></div>
 </div>
 
 <!-- Simple modal -->
@@ -85,10 +85,7 @@ require_once "../includes/header.php";
     <input class="input" id="noteTitle" placeholder="Title" />
     <textarea class="input" id="noteContent" placeholder="Write your note..." style="min-height:140px; margin-top:10px;"></textarea>
 
-    <div style="margin-top:10px;">
-      <input class="input" id="noteDate" type="date" />
-      <div class="help">Date (used for Calendar Peace)</div>
-    </div>
+    <input class="input" id="noteDate" type="hidden" />
 
     <div class="row" style="margin-top:12px;">
       <button class="btn" id="saveNote">Save</button>

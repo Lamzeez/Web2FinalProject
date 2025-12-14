@@ -91,11 +91,29 @@ require_once "../includes/header.php";
   }
   .mini-item .meta{ font-size:12px; opacity:.75; margin-top:3px; font-weight:700; }
 
-  /* Today panels: fixed height + scroll list */
+  /* Today panels: full-width per grid column */
   .today-row{
-    display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px;
+    display:grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 12px;
+
+    /* ✅ force grid items to stretch */
+    align-items: stretch;
+    justify-items: stretch;
   }
-  @media (min-width: 980px){ .today-row{ grid-template-columns:1fr 1fr; } }
+
+  @media (min-width: 980px){
+    .today-row{ grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ✅ override .panel centering + ensure full coverage */
+  .today-row > .today-panel{
+    width: 100%;
+    max-width: none;
+    margin: 0; /* overrides any auto-centering */
+  }
+
 
   .today-panel{
     height: 320px;
@@ -134,7 +152,7 @@ require_once "../includes/header.php";
 <div class="home-shell">
   <div class="home-top">
     <div class="home-title">
-      <h1>Welcome, <?= htmlspecialchars($username) ?>!</h1>
+      <h1>Welcome, <span id="homeUsername"><?= htmlspecialchars($username) ?></span>!</h1>
       <p>You only have to think once, NoteCore remembers for you ✨</p>
     </div>
 

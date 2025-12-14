@@ -14,14 +14,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $stmt->execute([$username]);
   $user = $stmt->fetch();
 
+  $success_redirect = "";
+
   if ($user && password_verify($password, $user["password_hash"])) {
     $_SESSION["user_id"] = (int)$user["id"];
     $_SESSION["username"] = $user["username"];
     $_SESSION["theme"] = $user["theme"];
-    header("Location: home.php");
-    exit;
+
+    // ✅ show success modal first, then redirect via JS
+    $success_redirect = "home.php";
+  } else {
+    $error = "Invalid username or password.";
   }
-  $error = "Invalid username or password.";
+
+  // $error = "Invalid username or password.";
 }
 
 require_once "../includes/header.php";
@@ -56,5 +62,21 @@ require_once "../includes/header.php";
     Don’t have an account yet? <a href="register.php" style="color:#1a58ff;">Register here</a>
   </p>
 </div>
+
+<?php if (!empty($success_redirect)): ?>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      if (typeof ncDialogShow === "function") {
+        await ncDialogShow({
+          title: "Welcome back!",
+          sub: "Login successful. Redirecting…",
+          state: "success",
+          duration: 900,
+        });
+      }
+      window.location.href = "<?= $success_redirect ?>";
+    });
+  </script>
+<?php endif; ?>
 
 <?php require_once "../includes/footer.php"; ?>

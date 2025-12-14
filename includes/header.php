@@ -48,6 +48,11 @@ $logo_sticker = $logo_sticker ?? false;
     <div class="side-gap"></div>
 
     <!-- Nav links (order you requested) -->
+    <a class="side-link <?= $active === "home" ? "active" : "" ?>" href="home.php">
+      <span class="side-ico">🏠</span>
+      <span class="side-text">Home</span>
+    </a>
+
     <a class="side-link <?= $active === "notes" ? "active" : "" ?>" href="notes.php">
       <span class="side-ico">✍️</span>
       <span class="side-text">Effortless Notes</span>
@@ -68,10 +73,7 @@ $logo_sticker = $logo_sticker ?? false;
       <span class="side-text">Profile</span>
     </a>
 
-    <a class="side-link <?= $active === "home" ? "active" : "" ?>" href="home.php">
-      <span class="side-ico">🏠</span>
-      <span class="side-text">Home</span>
-    </a>
+    
 
     <!-- Push logout to bottom -->
     <div class="side-push"></div>
