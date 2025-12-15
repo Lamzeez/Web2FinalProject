@@ -40,7 +40,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 require_once "../includes/header.php";
 ?>
-<div class="brand"><div class="logo">📄✅</div></div>
+<div class="brand">
+  <a class="side-logo">
+    <img src="../assets/img/logo.png" alt="NoteCore logo">
+  </a>
+</div>
+
+<br>
+
 <h1 class="title" style="font-size:44px;">NoteCore</h1>
 <p class="tagline">You only have to think once, NoteCore remembers for you ✨</p>
 
